@@ -3,14 +3,11 @@ typedef struct header {
     struct header   *next;
 } header_t;
 
-static header_t base;           /* Zero sized block to get us started. */
-static header_t *freep = &base; /* Points to first free block of memory. */
-static header_t *usedp;         /* Points to first used block of memory. */
+static header_t base;           
+static header_t *freep = &base; 
+static header_t *usedp;         
 
-/*
- * Scan the free list and look for a place to put the block. Basically, we're
- * looking for any block the to be freed block might have been partitioned from.
- */
+
 static void
 add_to_free_list(header_t *bp)
 {
@@ -35,11 +32,8 @@ add_to_free_list(header_t *bp)
     freep = p;
 }
 
-#define MIN_ALLOC_SIZE 4096 /* We allocate blocks in page sized chunks. */
+#define MIN_ALLOC_SIZE 4096 
 
-/*
- * Request more memory from the kernel.
- */
 static header_t *
 morecore(size_t num_units)
 {
@@ -58,9 +52,6 @@ morecore(size_t num_units)
     return freep;
 }
 
-/*
- * Find a chunk from the free list and put it in the used list.
- */
 void *
 GC_malloc(size_t alloc_size)
 {
@@ -71,8 +62,8 @@ GC_malloc(size_t alloc_size)
     prevp = freep;
 
     for (p = prevp->next;; prevp = p, p = p->next) {
-        if (p->size >= num_units) { /* Big enough. */
-            if (p->size == num_units) /* Exact size. */
+        if (p->size >= num_units) { 
+            if (p->size == num_units) 
                 prevp->next = p->next;
             else {
                 p->size -= num_units;
@@ -82,7 +73,7 @@ GC_malloc(size_t alloc_size)
 
             freep = prevp;
 
-            /* Add to p to the used list. */
+           
             if (usedp == NULL)  
                 usedp = p->next = p;
             else {
@@ -92,9 +83,9 @@ GC_malloc(size_t alloc_size)
 
             return (void *) (p + 1);
         }
-        if (p == freep) { /* Not enough memory. */
+        if (p == freep) { 
             p = morecore(num_units);
-            if (p == NULL) /* Request for more memory failed. */
+            if (p == NULL) 
                 return NULL;
         }
     }
@@ -102,10 +93,7 @@ GC_malloc(size_t alloc_size)
 
 #define UNTAG(p) (((unsigned int) (p)) & 0xfffffffc)
 
-/*
- * Scan a region of memory and mark any items in the used list appropriately.
- * Both arguments should be word aligned.
- */
+
 static void
 scan_region(unsigned int *sp, unsigned int *end)
 {
@@ -124,9 +112,7 @@ scan_region(unsigned int *sp, unsigned int *end)
     }
 }
 
-/*
- * Scan the marked blocks for references to other unmarked blocks.
- */
+
 static void
 scan_heap(void)
 {
@@ -153,9 +139,7 @@ scan_heap(void)
     }
 }
 
-/*
- * Find the absolute bottom of the stack and set stuff up.
- */
+
 void
 GC_init(void)
 {
@@ -181,36 +165,26 @@ GC_init(void)
     base.size = 0;
 }
 
-/*
- * Mark blocks of memory in use and free the ones not in use.
- */
 void
 GC_collect(void)
 {
     header_t *p, *prevp, *tp;
     unsigned long stack_top;
-    extern char end, etext; /* Provided by the linker. */
+    extern char end, etext; 
 
     if (usedp == NULL)
         return;
-
-    /* Scan the BSS and initialized data segments. */
     scan_region(&etext, &end);
 
-    /* Scan the stack. */
     asm volatile ("movl %%ebp, %0" : "=r" (stack_top));
     scan_region(stack_top, stack_bottom);
 
-    /* Mark from the heap. */
     scan_heap();
 
-    /* And now we collect! */
     for (prevp = usedp, p = UNTAG(usedp->next);; prevp = p, p = UNTAG(p->next)) {
     next_chunk:
         if (!((unsigned int)p->next & 1)) {
-            /*
-             * The chunk hasn't been marked. Thus, it must be set free. 
-             */
+
             tp = p;
             p = UNTAG(p->next);
             add_to_free_list(tp);
