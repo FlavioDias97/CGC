@@ -2,7 +2,7 @@
 
 Simple gc in c
 
-Just a copy paste for save the code.
+Just a copy paste.
 
 For more information read the original article (http://maplant.com/gc.html)
 
